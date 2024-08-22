@@ -1,0 +1,96 @@
+apiVersion: leaderworkerset.x-k8s.io/v1
+kind: LeaderWorkerSet
+metadata:
+  name: ipp-notebook
+  annotations:
+    leaderworkerset.sigs.k8s.io/exclusive-topology: cloud.google.com/gke-nodepool
+spec:
+  replicas: 1
+  leaderWorkerTemplate:
+    leaderTemplate:
+      metadata:
+        labels:
+            app: jupyter-notebook
+      spec:
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 100
+          fsGroup: 100
+        nodeSelector:
+          cloud.google.com/gke-tpu-topology: ${topology}
+          cloud.google.com/gke-tpu-accelerator: ${tpu_type}
+        tolerations: 
+        - key: "google.com/tpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+        containers:
+        - name: jupyter-notebook-server
+          image: jupyter/base-notebook:latest
+          args: 
+            - "start-notebook.sh"
+            - "--NotebookApp.allow_origin='https://colab.research.google.com'"
+            - "--NotebookApp.port_retries=0"
+            - "--NotebookApp.token=${jupyter_token}"
+          ports:
+          - containerPort: 8888
+            name: http-web-svc
+          volumeMounts:
+          - name: mypvc 
+            mountPath: /home/jovyan/nfs # jovyan is the default user
+        - name: ipp-controller 
+          image: ${image}
+          command:
+              - bash
+              - -c
+              - |
+                ip=$(hostname -I | awk '{print $1}')
+                echo $ip
+                ipcontroller --ip="$ip" --profile-dir=/app/ipp --log-level=ERROR --ping 10000
+          resources:
+            limits:
+              cpu: "24"
+              memory: 100G
+          volumeMounts:
+            - name: mypvc 
+              mountPath: /app/ipp
+        volumes:
+            - name: mypvc
+              persistentVolumeClaim:
+                claimName: podpvc
+
+    size: ${node_count + 1}
+    workerTemplate:
+      spec:
+        nodeSelector:
+          cloud.google.com/gke-tpu-topology: ${topology}
+          cloud.google.com/gke-tpu-accelerator: ${tpu_type}
+        containers:
+        - name: ipp-engine
+          image: ${image}
+          ports:
+          - containerPort: 8471 # Default port using which TPU VMs communicate
+          securityContext:
+            privileged: true
+          command:
+          - bash
+          - -c
+          - |
+            sleep 20
+            cat /app/ipp/security/ipcontroller-client.json
+            cat /app/ipp/security/ipcontroller-engine.json
+            ipengine --file="/app/ipp/security/ipcontroller-engine.json" --timeout 5.0
+          resources:
+            requests:
+              google.com/tpu: 4
+            limits:
+              google.com/tpu: 4
+          volumeMounts:
+            - name: mypvc 
+              mountPath: /app/ipp
+        volumes:
+            - name: mypvc
+              persistentVolumeClaim:
+                claimName: podpvc
+
+
+              
