@@ -14,18 +14,19 @@ case $mode in
         kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/$VERSION/manifests.yaml
     ;;
     up)
-        echo $mode
+        echo "Start notebook service.."
         kubectl apply -f preprov-filestore.yaml
         kubectl apply -f deployment.yaml
         kubectl apply -f service.yaml
         ;;
     down)
-        echo $mode
+        echo "Tear down notebook service.."
         kubectl delete -f preprov-filestore.yaml
         kubectl delete -f deployment.yaml
         kubectl delete -f service.yaml
         ;;
     reload)
+        echo "Reload notebook service.."    
         kubectl delete -f preprov-filestore.yaml
         kubectl delete -f deployment.yaml
         kubectl delete -f service.yaml
