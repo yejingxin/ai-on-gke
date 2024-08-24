@@ -10,17 +10,10 @@ provider "google" {
 
 # VPC
 resource "google_compute_network" "vpc" {
-  name                    = "${var.resource_name_prefix}-vpc"
-  auto_create_subnetworks = "false"
+  name                    = "${var.resource_name_prefix}-net"
+  auto_create_subnetworks = "true"
 }
 
-# Subnet
-resource "google_compute_subnetwork" "subnet" {
-  name          = "${var.resource_name_prefix}-subnet"
-  region        = var.region
-  network       = google_compute_network.vpc.name
-  ip_cidr_range = "10.10.0.0/19"
-}
 
 resource "google_container_cluster" "tpu_cluster" {
   name     = "${var.resource_name_prefix}-gke-cluster"
@@ -52,7 +45,7 @@ resource "google_container_cluster" "tpu_cluster" {
   }
 
   network            = google_compute_network.vpc.name
-  subnetwork         = google_compute_subnetwork.subnet.name
+  subnetwork         = google_compute_network.vpc.name
   logging_service    = "logging.googleapis.com/kubernetes"
   monitoring_service = "monitoring.googleapis.com/kubernetes"
 
@@ -125,7 +118,8 @@ resource "google_filestore_instance" "instance" {
 }
 
 resource "local_file" "preprov_filestore_yaml" {
-  content  = templatefile("${path.module}/template/preprov-filestore.yaml", { ip = google_filestore_instance.instance.networks[0].ip_addresses[0], share_name = var.filestore.share_name, instance_id = google_filestore_instance.instance.name, zone = var.filestore.zone })
+  content  = templatefile("${path.module}/template/preprov-filestore.yaml", 
+  { ip = google_filestore_instance.instance.networks[0].ip_addresses[0], share_name = var.filestore.share_name, instance_id = google_filestore_instance.instance.name, zone = var.filestore.zone })
   filename = "${path.module}/preprov-filestore.yaml"
 }
 
@@ -154,6 +148,8 @@ resource "local_file" "run_bash" {
     region=var.region,
     project_id = var.project_id,
     jupyter_token = var.jupyter_token,
+    ip = google_filestore_instance.instance.networks[0].ip_addresses[0],
+    share_name = var.filestore.share_name,
   })
   filename = "${path.module}/ipp_notebook.sh"
 }

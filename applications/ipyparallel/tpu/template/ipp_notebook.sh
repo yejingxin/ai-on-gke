@@ -21,25 +21,26 @@ case $mode in
         ;;
     down)
         echo "Tear down notebook service.."
-        kubectl delete -f preprov-filestore.yaml
-        kubectl delete -f deployment.yaml
         kubectl delete -f service.yaml
+        kubectl delete -f deployment.yaml
+        kubectl delete -f preprov-filestore.yaml
         ;;
     reload)
         echo "Reload notebook service.."    
-        kubectl delete -f preprov-filestore.yaml
-        kubectl delete -f deployment.yaml
         kubectl delete -f service.yaml
-        kubectl apply -f preprov-filestore.yaml
+        kubectl delete -f deployment.yaml
         kubectl apply -f deployment.yaml
         kubectl apply -f service.yaml
-        echo $mode
         ;;
     portforward)
         echo "connect colab to http://127.0.0.1:8888/lab?token=${jupyter_token}"
         kubectl port-forward service/ipp 8888:8888
         ;;
+    nfsmount)
+        echo "Run the following cmd in colab enterprise to mount filestore:"
+        echo "!sudo apt-get install nfs-common && mkdir nfs && sudo mount -o nolock ${ip}:/${share_name} nfs"
+        ;;
     *)
-    echo -n "unknown"
-    ;;
+        echo -n "unknown"
+        ;;
 esac
